@@ -1,0 +1,18 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Local / generated test artifacts
+_test_*/
+_full_roundtrip_out/
+_roundtrip_tmp/
+*.log
+dump-*.json
+*-results.json
+full-comparison.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

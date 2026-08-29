@@ -1,0 +1,33 @@
+{
+  "name": "cooked-datatable-patcher",
+  "version": "1.0.0",
+  "description": "Patch unversioned cooked UE 5.1 DataTable packages with _ModManager JSON",
+  "type": "module",
+  "bin": {
+    "cooked-datatable-patcher": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build",
+    "patch": "tsx src/cli.ts patch",
+    "patch-modmanager": "tsx src/cli.ts patch-modmanager",
+    "dump": "tsx src/cli.ts dump",
+    "test:round-trip": "tsx scripts/round-trip-test.ts"
+  },
+  "files": [
+    "dist",
+    "mappings.usmap",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "commander": "^14.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.8.0"
+  }
+}
