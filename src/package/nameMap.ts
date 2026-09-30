@@ -119,6 +119,7 @@ export function extendPackageNameMap(
   summary: PackageFileSummary,
   offsets: PackageSummaryOffsets,
   newNames: readonly string[],
+  exportEntrySize = 0,
 ): ExtendNameMapResult {
   const existing = readNameMap(uasset, summary.nameOffset, summary.nameCount);
   const uniqueNew = [...new Set(newNames.filter((n) => n && !existing.includes(n)))];
@@ -151,7 +152,7 @@ export function extendPackageNameMap(
     uniqueNew.length,
   );
 
-  const exports = readExportMap(out, summary.exportOffset + delta, summary.exportCount);
+  const exports = readExportMap(out, summary.exportOffset + delta, summary.exportCount, exportEntrySize);
   for (const exp of exports) {
     bumpFNameIndex(out, exp.objectNameIndexFileOffset, refCount, uniqueNew.length);
     patchInt64(out, exp.serialOffsetFileOffset, delta);

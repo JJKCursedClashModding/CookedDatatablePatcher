@@ -60,11 +60,19 @@ export function readImportMap(buffer: Buffer, importOffset: number, importCount:
   return imports;
 }
 
-/** Export map at Summary.ExportOffset (READING_COOKED_DATATABLES.md §4.1). */
-export function readExportMap(buffer: Buffer, exportOffset: number, exportCount: number): ObjectExport[] {
+/** Export map at Summary.ExportOffset (READING_COOKED_DATATABLES.md §4.1).
+ *
+ * @param entrySize Optional fixed per-entry stride. JJK CC cooked Blueprint
+ *   packages use 96-byte entries (bools-as-int32 + preload deps); pass the
+ *   stride derived from `(dependsOffset - exportOffset) / exportCount`.
+ *   Defaults to 0 (legacy sequential parsing, used for DataTables).
+ */
+export function readExportMap(buffer: Buffer, exportOffset: number, exportCount: number, entrySize = 0): ObjectExport[] {
   const reader = new BinaryReader(buffer, exportOffset);
   const exports: ObjectExport[] = [];
   for (let i = 0; i < exportCount; i++) {
+    const entryStart = entrySize > 0 ? exportOffset + i * entrySize : reader.offset;
+    if (entrySize > 0) reader.seek(entryStart);
     const classIndex = reader.readInt32();
     const superIndex = reader.readInt32();
     const templateIndex = reader.readInt32();
@@ -110,6 +118,7 @@ export function readExportMap(buffer: Buffer, exportOffset: number, exportCount:
       notForClient,
       isAsset,
     });
+    if (entrySize > 0) reader.seek(entryStart + entrySize);
   }
   return exports;
 }

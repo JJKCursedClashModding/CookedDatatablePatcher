@@ -33,6 +33,8 @@ export function defaultNativeStructJson(structName: string): Record<string, numb
       return { R: 0, G: 0, B: 0, A: 1, Hex: "000000" };
     case "Color":
       return { R: 0, G: 0, B: 0, A: 255 };
+    case "IntPoint":
+      return { X: 0, Y: 0 };
     default:
       return {};
   }
@@ -60,6 +62,8 @@ export function isNativeStructZero(
       return num(value.R) === 0 && num(value.G) === 0 && num(value.B) === 0 && num(value.A) === 0;
     case "Color":
       return num(value.R) === 0 && num(value.G) === 0 && num(value.B) === 0 && num(value.A) === 0;
+    case "IntPoint":
+      return num(value.X) === 0 && num(value.Y) === 0;
     default:
       return Object.keys(value)
         .filter((k) => k !== "Hex" && k !== "$bytes")

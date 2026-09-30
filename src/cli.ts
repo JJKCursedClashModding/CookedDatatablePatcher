@@ -110,4 +110,48 @@ program
     );
   });
 
+program
+  .command("patch-parameters")
+  .requiredOption("--parameters <dir>", "Directory with merged parameters/*.json files")
+  .requiredOption("--input <dir>", "Directory with pristine .uasset/.uexp bases")
+  .requiredOption("--output <dir>", "Output directory for patched packages")
+  .option("--manifest <path>", "Path to base-manifest.json for update detection")
+  .option("--usmap <path>", "Path to .usmap mappings file", DEFAULT_USMAP)
+  .action(async (opts) => {
+    const { patchParameterDirectory } = await import("./bpdata/modmanager.js");
+    const summary = patchParameterDirectory({
+      parametersDir: opts.parameters,
+      inputDir: opts.input,
+      outputDir: opts.output,
+      manifestPath: opts.manifest,
+      usmapPath: opts.usmap,
+    });
+    for (const r of summary.patched) {
+      console.log(
+        `${r.shortName}: added=${r.added} replaced=${r.replaced} skipped=${r.skipped} ` +
+          `export ${r.oldExportSize} -> ${r.newExportSize}`,
+      );
+    }
+    if (summary.skipped.length > 0) {
+      console.log(`Skipped (empty): ${summary.skipped.join(", ")}`);
+    }
+    if (summary.errors.length > 0) {
+      console.error(`\n${summary.errors.length} error(s):`);
+      for (const e of summary.errors) console.error(`  ${e.shortName}: ${e.error}`);
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command("roundtrip-bp")
+  .requiredOption("--asset <name>", "Parameter asset base name")
+  .requiredOption("--input <dir>", "Directory containing cooked package")
+  .option("--usmap <path>", "Path to .usmap mappings file", DEFAULT_USMAP)
+  .action(async (opts) => {
+    const { roundtripBp } = await import("./bpdata/roundtrip.js");
+    const res = roundtripBp({ inputDir: opts.input, assetName: opts.asset, usmapPath: opts.usmap });
+    console.log(`${res.asset}: identical=${res.identical} exportBytes=${res.exportSize}`);
+    if (!res.identical) process.exitCode = 1;
+  });
+
 program.parse();
