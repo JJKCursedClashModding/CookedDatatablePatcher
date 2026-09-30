@@ -1,6 +1,7 @@
-import { copyFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { patchCookedDataTable, type PatchResult } from "./patchTable.js";
+import { DEFAULT_USMAP, patchCookedDataTable, type PatchResult } from "./patchTable.js";
+import { parseUsmap, SchemaRegistry } from "./schema/usmap.js";
 
 export interface ModManagerPatchOptions {
   readonly modManagerDir: string;
@@ -11,6 +12,8 @@ export interface ModManagerPatchOptions {
   readonly addRows?: boolean;
   /** Copy unmodified cooked tables into output so the directory is complete. */
   readonly copyUnpatched?: boolean;
+  /** Pre-parsed schema registry shared across all tables in the batch. */
+  readonly registry?: import("./schema/usmap.js").SchemaRegistry;
 }
 
 export interface ModManagerPatchError {
@@ -51,6 +54,11 @@ function copyCookedTable(inputDir: string, outputDir: string, table: string): vo
 export function patchModManagerDirectory(options: ModManagerPatchOptions): ModManagerPatchSummary {
   mkdirSync(options.outputDir, { recursive: true });
 
+  // Parse the usmap once per batch instead of once per table (1.5MB +
+  // brotli decompress each time was the dominant cost of large batches).
+  const sharedRegistry =
+    options.registry ?? new SchemaRegistry(parseUsmap(readFileSync(options.usmapPath ?? DEFAULT_USMAP)));
+
   const modTables = listModManagerTables(options.modManagerDir);
   const cookedTables = new Set(listCookedTables(options.inputDir));
   const patched: PatchResult[] = [];
@@ -77,6 +85,7 @@ export function patchModManagerDirectory(options: ModManagerPatchOptions): ModMa
           patchJsonPath: patchPath,
           usmapPath: options.usmapPath,
           addRows: options.addRows ?? true,
+          registry: sharedRegistry,
         }),
       );
     } catch (err) {

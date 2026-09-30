@@ -252,6 +252,8 @@ export interface PatchBpOptions {
   readonly shortName: string;
   readonly patchJsonPath: string;
   readonly usmapPath?: string;
+  /** Pre-parsed schema registry (avoids re-parsing the 1.5MB usmap per asset). */
+  readonly registry?: SchemaRegistry;
 }
 
 export function patchBpParameter(options: PatchBpOptions): BpPatchResult {
@@ -265,7 +267,8 @@ export function patchBpParameter(options: PatchBpOptions): BpPatchResult {
     options.patchJsonPath,
   );
 
-  const registry = new SchemaRegistry(parseUsmap(readFileSync(options.usmapPath ?? DEFAULT_USMAP)));
+  const registry =
+    options.registry ?? new SchemaRegistry(parseUsmap(readFileSync(options.usmapPath ?? DEFAULT_USMAP)));
   const schema = registry.getFlattenedSchema(asset.className);
   if (!schema) throw new Error(`${asset.assetName}: missing usmap schema ${asset.className}`);
   const mapSchemaProp = schema.properties.find((p) => p.name === asset.mapProp);

@@ -30,6 +30,8 @@ export interface PatchOptions {
   readonly patchJsonPath: string;
   readonly usmapPath?: string;
   readonly addRows?: boolean;
+  /** Pre-parsed schema registry (avoids re-parsing the 1.5MB usmap per table). */
+  readonly registry?: SchemaRegistry;
 }
 
 export interface PatchResult {
@@ -44,8 +46,8 @@ export interface PatchResult {
 }
 
 export function patchCookedDataTable(options: PatchOptions): PatchResult {
-  const usmapPath = options.usmapPath ?? DEFAULT_USMAP;
-  const registry = new SchemaRegistry(parseUsmap(readFileSync(usmapPath)));
+  const registry =
+    options.registry ?? new SchemaRegistry(parseUsmap(readFileSync(options.usmapPath ?? DEFAULT_USMAP)));
   const pkg = loadCookedPackageFromDir(options.inputDir, options.tableAssetName);
   const patch = parseModPatch(JSON.parse(readFileSync(options.patchJsonPath, "utf8")), options.patchJsonPath);
 

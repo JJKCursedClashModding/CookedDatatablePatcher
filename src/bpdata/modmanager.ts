@@ -11,6 +11,8 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { patchBpParameter, type BpPatchResult } from "./patch.js";
+import { DEFAULT_USMAP } from "../patchTable.js";
+import { parseUsmap, SchemaRegistry } from "../schema/usmap.js";
 import { ASSET_BY_SHORT_NAME } from "./parameters.js";
 
 export interface ParameterBatchOptions {
@@ -19,6 +21,8 @@ export interface ParameterBatchOptions {
   readonly outputDir: string;
   readonly manifestPath?: string;
   readonly usmapPath?: string;
+  /** Pre-parsed schema registry shared across all assets in the batch. */
+  readonly registry?: SchemaRegistry;
 }
 
 export interface ParameterBatchError {
@@ -85,6 +89,10 @@ export function patchParameterDirectory(options: ParameterBatchOptions): Paramet
     verifyBaseManifest(options.inputDir, options.manifestPath);
   }
 
+  // Parse the usmap once per batch (same 1.5MB brotli cost as datatables).
+  const sharedRegistry =
+    options.registry ?? new SchemaRegistry(parseUsmap(readFileSync(options.usmapPath ?? DEFAULT_USMAP)));
+
   const shorts = listParameterJsons(options.parametersDir);
   const patched: BpPatchResult[] = [];
   const skipped: string[] = [];
@@ -116,6 +124,7 @@ export function patchParameterDirectory(options: ParameterBatchOptions): Paramet
           shortName,
           patchJsonPath: patchPath,
           usmapPath: options.usmapPath,
+          registry: sharedRegistry,
         }),
       );
     } catch (err) {
