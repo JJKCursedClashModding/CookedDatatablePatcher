@@ -187,11 +187,22 @@ export function parseModPatch(raw: unknown, sourceLabel = "patch JSON"): ModPatc
   return patch;
 }
 
+export interface CaseFix {
+  /** Spelling used in the patch JSON. */
+  readonly patch: string;
+  /** Canonical cooked spelling the patch was merged into. */
+  readonly canonical: string;
+}
+
 export function applyModPatch(rows: DataTableRow[], patch: ModPatch, addRows: boolean): {
   rows: DataTableRow[];
   merged: number;
   added: number;
   missing: number;
+  missingRows: string[];
+  addedRows: string[];
+  /** Patch keys that matched a cooked row case-insensitively (merged, cooked casing kept). */
+  caseFixed: CaseFix[];
 } {
   const byName = new Map(
     rows.map((r) => [
@@ -199,29 +210,61 @@ export function applyModPatch(rows: DataTableRow[], patch: ModPatch, addRows: bo
       { name: r.name, values: { ...r.values }, nameIndex: r.nameIndex, nameNumber: r.nameNumber },
     ]),
   );
+  // UE FNames compare case-insensitively, but the cooked lookup above is
+  // case-sensitive: a patch key that differs only by case from a cooked row
+  // would otherwise create a duplicate sparse row that can shadow the real
+  // one in-game. Fold those onto the existing row, keeping cooked casing.
+  const byLower = new Map(
+    [...byName.values()].map((r) => [r.name.toLowerCase(), r] as const),
+  );
   let merged = 0;
   let added = 0;
   let missing = 0;
+  const missingRows: string[] = [];
+  const addedRows: string[] = [];
+  const caseFixed: CaseFix[] = [];
 
   for (const [rowName, patchValues] of Object.entries(patch)) {
-    const existing = byName.get(rowName);
-    if (existing) {
+    const lower = rowName.toLowerCase();
+    const target = byName.get(rowName) ?? byLower.get(lower);
+    if (target && target.name !== rowName) {
+      caseFixed.push({ patch: rowName, canonical: target.name });
+    }
+    if (target) {
       for (const [key, value] of Object.entries(patchValues)) {
-        existing.values[key] = value;
+        // Keep the ID column consistent with the row key: a body ID that
+        // matches the key case-insensitively is coerced to key casing.
+        if (
+          key === "ID" &&
+          typeof value === "string" &&
+          value.toLowerCase() === target.name.toLowerCase()
+        ) {
+          target.values[key] = target.name;
+        } else {
+          target.values[key] = value;
+        }
       }
       merged++;
     } else if (addRows) {
-      byName.set(rowName, {
+      const values: Record<string, JsonValue> = { ID: rowName, ...patchValues };
+      if (typeof values.ID === "string" && values.ID.toLowerCase() === lower) {
+        values.ID = rowName;
+      }
+      const entry = {
         name: rowName,
-        values: { ID: rowName, ...patchValues },
+        values,
         nameIndex: undefined,
         nameNumber: undefined,
-      });
+      };
+      byName.set(rowName, entry);
+      byLower.set(lower, entry);
       added++;
+      addedRows.push(rowName);
     } else {
       missing++;
+      missingRows.push(rowName);
     }
   }
 
-  return { rows: [...byName.values()], merged, added, missing };
+  return { rows: [...byName.values()], merged, added, missing, missingRows, addedRows, caseFixed };
 }

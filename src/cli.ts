@@ -31,8 +31,19 @@ program
       `Patched ${result.table}: merged=${result.merged} added=${result.added} missing=${result.missing} ` +
         `export ${result.oldExportSize} -> ${result.newExportSize} bytes`,
     );
+    if (result.missingRows.length > 0) {
+      console.error(
+        `Row(s) not found in ${result.table} (skipped): ${result.missingRows.join(", ")}`,
+      );
+    }
+    if (result.addedRows.length > 0) {
+      console.log(`New row(s) added to ${result.table}: ${result.addedRows.join(", ")}`);
+    }
     console.log(`Wrote ${result.outputUasset}`);
     console.log(`Wrote ${result.outputUexp}`);
+    if (result.missingRows.length > 0) {
+      process.exitCode = 1;
+    }
   });
 
 program
@@ -55,17 +66,29 @@ program
 
     let merged = 0;
     let added = 0;
+    let missing = 0;
     for (const r of summary.patched) {
       merged += r.merged;
       added += r.added;
+      missing += r.missing;
       console.log(
-        `${r.table}: merged=${r.merged} added=${r.added} export ${r.oldExportSize} -> ${r.newExportSize}`,
+        `${r.table}: merged=${r.merged} added=${r.added} missing=${r.missing} export ${r.oldExportSize} -> ${r.newExportSize}`,
       );
+      if (r.missingRows.length > 0) {
+        console.error(`  ${r.table}: row(s) not found (skipped): ${r.missingRows.join(", ")}`);
+      }
+      if (r.addedRows.length > 0) {
+        console.log(`  ${r.table}: new row(s) added: ${r.addedRows.join(", ")}`);
+      }
     }
 
     console.log(
-      `\nPatched ${summary.patched.length} tables (merged=${merged} added=${added} rows)`,
+      `\nPatched ${summary.patched.length} tables (merged=${merged} added=${added} missing=${missing} rows)`,
     );
+    if (missing > 0) {
+      console.error(`${missing} row(s) not found across ${summary.patched.length} table(s) — likely a typo in the patch JSON rowName.`);
+      process.exitCode = 1;
+    }
     if (summary.copied.length > 0) {
       console.log(`Copied ${summary.copied.length} unmodified tables`);
     }

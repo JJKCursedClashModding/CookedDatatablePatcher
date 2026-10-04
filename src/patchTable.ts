@@ -39,6 +39,9 @@ export interface PatchResult {
   readonly merged: number;
   readonly added: number;
   readonly missing: number;
+  readonly missingRows: readonly string[];
+  readonly addedRows: readonly string[];
+  readonly caseFixed: readonly { patch: string; canonical: string }[];
   readonly oldExportSize: number;
   readonly newExportSize: number;
   readonly outputUasset: string;
@@ -54,10 +57,12 @@ export function patchCookedDataTable(options: PatchOptions): PatchResult {
   const parsed = parseDataTableExport(pkg, registry);
   const patchResult = applyModPatch(parsed.rows, patch, options.addRows ?? true);
 
-  const patchRowNames = new Set(Object.keys(patch));
+  // Patch keys may have been folded onto cooked-cased rows (see applyModPatch
+  // caseFixed), so match rows to the patch case-insensitively here.
+  const patchRowNamesLower = new Set(Object.keys(patch).map((n) => n.toLowerCase()));
   const requiredNames = new Set<string>();
   for (const row of patchResult.rows) {
-    if (!patchRowNames.has(row.name)) continue;
+    if (!patchRowNamesLower.has(row.name.toLowerCase())) continue;
     const rowKey = fNameComparisonIndexString(pkg.names, row.name);
     if (rowKey) requiredNames.add(rowKey);
     for (const name of collectRequiredFNameStrings(parsed.rowStruct, row.values, pkg.names, registry)) {
@@ -119,6 +124,9 @@ export function patchCookedDataTable(options: PatchOptions): PatchResult {
     merged: patchResult.merged,
     added: patchResult.added,
     missing: patchResult.missing,
+    missingRows: patchResult.missingRows,
+    addedRows: patchResult.addedRows,
+    caseFixed: patchResult.caseFixed,
     oldExportSize: pkg.mainExport.serialSize,
     newExportSize: newExport.length,
     outputUasset: outUasset,
