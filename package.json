@@ -12,7 +12,7 @@
     "patch": "tsx src/cli.ts patch",
     "patch-modmanager": "tsx src/cli.ts patch-modmanager",
     "dump": "tsx src/cli.ts dump",
-"test": "node --test tests/enumArrays.test.mjs"
+    "test": "node --test tests/enumArrays.test.mjs",
     "test:round-trip": "tsx scripts/round-trip-test.ts"
   },
   "files": [
