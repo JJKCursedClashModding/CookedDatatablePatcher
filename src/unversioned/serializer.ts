@@ -59,6 +59,39 @@ function enumArrayElementAsFName(prop: UsmapProperty, options?: ReadPropertyOpti
   return prop.type === "EnumProperty" && (options?.arrayContainerAlign ?? 0) >= 8;
 }
 
+/**
+ * Resolve a patch value for an FName-serialized enum array element (see
+ * enumArrayElementAsFName) to the FName text stored in the cooked package.
+ * Accepts both the string label shown by `dump` and the raw numeric wire
+ * value (mapped through the usmap enum def).
+ *
+ * A number with no enum mapping throws instead of silently writing a
+ * reference to a garbage `"5"` name.
+ */
+function resolveEnumArrayElementText(
+  inner: UsmapProperty,
+  item: JsonValue,
+  names: readonly string[],
+  registry: SchemaRegistry,
+): string {
+  if (typeof item === "number" && inner.enumName) {
+    const enumName: string = inner.enumName;
+    const label = registry.enumWireToName(enumName, item);
+    if (label === undefined) {
+      throw new Error(`Enum array value ${item} is not a valid wire value of ${enumName}`);
+    }
+    const short = label.includes("::") ? label.split("::").pop()! : label;
+    // Cooked FNames store the prefixed form (e.g. "EGameAttackTransitionKind::NormalAttack_2").
+    if (label.includes("::") && names.includes(label)) return label;
+    if (names.includes(`${enumName}::${short}`)) return `${enumName}::${short}`;
+    if (names.includes(short)) return short;
+    // Valid but unreferenced by the cooked package yet — prefer the prefixed
+    // form so name-map extension interns the same text the writer uses.
+    return label.includes("::") ? label : `${enumName}::${short}`;
+  }
+  return String(item);
+}
+
 /** UEnum wire value from serialized integer (byte enums in 8-byte slots keep value in low byte). */
 function enumWireValue(prop: UsmapProperty, raw: number, align: number): number {
   if (enumByteUnderlying(prop) && align >= 8) return raw & 0xff;
@@ -251,7 +284,8 @@ function collectFNameFromProperty(
         innerAlign !== undefined ? { arrayContainerAlign: innerAlign } : undefined;
       if (enumArrayElementAsFName(prop.innerType, innerOpts)) {
         for (const item of value) {
-          const entry = fNameComparisonIndexString(names, String(item));
+          const text = resolveEnumArrayElementText(prop.innerType, item, names, registry);
+          const entry = fNameComparisonIndexString(names, text);
           if (entry) out.add(entry);
         }
       } else {
@@ -449,7 +483,8 @@ function writePropertyValue(
           innerAlign !== undefined ? { arrayContainerAlign: innerAlign } : undefined;
         for (const item of arr) {
           if (enumArrayElementAsFName(prop.innerType, innerOpts)) {
-            writer.writeFName(parseFNameText(ctx.names, String(item)));
+            const text = resolveEnumArrayElementText(prop.innerType, item, ctx.names, ctx.registry);
+            writer.writeFName(parseFNameText(ctx.names, text));
           } else {
             writePropertyValue(writer, prop.innerType, item, ctx, innerOpts);
           }
